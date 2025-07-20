@@ -1,4 +1,4 @@
-module Point (Point(..), euclideanDistance) where
+module Point (Point(..), euclideanDistance, getID) where
 
 -- Class that represents the informations of data points
 -- Each point has an id and a list of coordinates
@@ -14,3 +14,6 @@ euclideanDistance (Point _ coords1) (Point _ coords2) =
     sumSquares :: [Float] -> [Float] -> Float
     sumSquares [] [] = 0
     sumSquares (x:xs) (y:ys) = (x - y) ^ 2 + sumSquares xs ys
+
+getID :: Point -> Int
+getID (Point i _) = i

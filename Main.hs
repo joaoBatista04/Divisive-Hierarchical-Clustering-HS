@@ -1,4 +1,4 @@
-import Utils (readCSV, checkK)
+import Utils (readCSV, checkK, buildLinks)
 import Point (Point(..), euclideanDistance)
 
 main :: IO ()
@@ -20,3 +20,6 @@ main = do
 
     -- Checking if the user has not placed an incorrect number of groups
     checkK k points
+
+    let links = buildLinks points
+    mapM_ print links
