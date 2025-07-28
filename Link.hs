@@ -1,10 +1,10 @@
-module Link (Link(..)) where
+module Link (Link(..), secondPoint) where
 
-import Point (Point(..), getID)
+import Point (Point)
 
-data Link = Link{
+data Link = Link {
     a :: Point,
-    b:: Point,
+    b :: Point,
     distance :: Float
 } deriving (Show)
 
@@ -13,9 +13,9 @@ instance Eq Link where
 
 instance Ord Link where
     compare (Link a1 b1 distance1) (Link a2 b2 distance2)
-        | distance1 /= distance2  = compare distance1 distance2
-        | otherwise = compare (minID a1 b1, maxID a1 b1)
-                              (minID a2 b2, maxID a2 b2)
-      where
-        minID p1 p2 = min (getID p1) (getID p2)
-        maxID p1 p2 = max (getID p1) (getID p2)
+        | distance1 /= distance2 = compare distance1 distance2
+        | otherwise = compare (min a1 b1, max a1 b1) (min a2 b2, max a2 b2)
+
+-- Função que acessa o segundo ponto de um link (b)
+secondPoint :: Link -> Point
+secondPoint (Link _ p _) = p

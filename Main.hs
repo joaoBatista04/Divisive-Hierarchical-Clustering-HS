@@ -1,5 +1,5 @@
-import Utils (readCSV, checkK, buildLinks)
-import Point (Point(..), euclideanDistance)
+import Utils (readCSV, checkK, buildLinks, cutLinks, buildGroups, printGroups)
+import Point (Point)
 
 main :: IO ()
 
@@ -18,8 +18,6 @@ main = do
     -- Reading point informations (coordinates and dimensions) from CSV file
     points <- readCSV fpInput
 
-    -- Checking if the user has not placed an incorrect number of groups
     checkK k points
-
-    let links = buildLinks points
-    mapM_ print links
+    
+    printGroups (buildGroups (cutLinks (buildLinks points) k) points)

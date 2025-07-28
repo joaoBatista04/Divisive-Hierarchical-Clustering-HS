@@ -1,14 +1,15 @@
-module Utils (readCSV, checkK, buildLinks) where
+module Utils (readCSV, checkK, buildLinks, cutLinks, buildGroups, printGroups) where
 
 import System.IO
 import System.Exit (exitFailure)
-import qualified Data.Set as Set
-import Data.List (unfoldr)
+import Data.List (minimumBy, sortBy, sort)
+import Data.Ord (comparing)
 
-import Point (Point(..), euclideanDistance, getID)
-import Link (Link(..))
+import Point (Point, euclideanDistance)
+import Link (Link(..), secondPoint)
+import UnionFind (UnionFind, initUF, find, union)
 
--- Function to split a CSV line into comma-separated substrings
+-- Função para dividir uma linha CSV em substrings separadas por vírgula
 splitComma :: String -> [String]
 splitComma [] = []
 splitComma s =
@@ -17,19 +18,19 @@ splitComma s =
            [] -> []
            (_:xs) -> splitComma xs
 
--- Function to get the point's coordinates list from a CSV file
+-- Função para ler o arquivo CSV e retornar uma lista de pontos
 readCSV :: FilePath -> IO [Point]
 readCSV fp = do
   contents <- readFile fp
   let linesOfFile = lines contents
-  -- Extracts the coordinates of each point in each row of the CSV file
+  -- Para cada linha, cria um ponto com índice e as coordenadas extraídas
   return $ zipWith parseLine [1..] linesOfFile
   where
-    -- Parses a single line into a Point with an id and coordinates
+    -- Função para processar uma linha e convertê-la em um ponto
     parseLine :: Int -> String -> Point
     parseLine idx line =
       let coords = map read (splitComma line) :: [Float]
-      in Point idx coords
+      in (idx, coords)
 
 -- Function to check if the user has not placed an invalid value to K parameter
 checkK :: Int -> [Point] -> IO()
@@ -45,19 +46,59 @@ checkK k points =
         exitFailure
   else return()
 
+  -- Função que constrói os links
 buildLinks :: [Point] -> [Link]
-buildLinks [] = []
-buildLinks (first:points) = unfoldr next (Set.singleton (getID first), first)
-  where
-    total = length (first:points)
+buildLinks points = buildLinksAux points (head points) [head points]
 
-    next :: (Set.Set Int, Point) -> Maybe (Link, (Set.Set Int, Point))
-    next (chosen, curr)
-      | Set.size chosen >= total = Nothing
-      | otherwise =
-          let candidates = filter (\p -> Set.notMember (getID p) chosen) (first:points)
-              links = [Link curr p (euclideanDistance curr p) | p <- candidates]
-              minLink = minimum links
-              nextPoint = b minLink
-              chosen' = Set.insert (getID nextPoint) chosen
-          in Just (minLink, (chosen', nextPoint))
+-- Função auxiliar para recursão
+buildLinksAux :: [Point] -> Point -> [Point] -> [Link] 
+buildLinksAux points curr chosen
+    | length chosen == length points = []  -- Caso base: todos os pontos foram visitados
+    | otherwise = 
+        minLink : buildLinksAux points nextPoint (chosen ++ [nextPoint])
+  where
+    -- Encontrando o link com a menor distância entre os pontos não escolhidos
+    minLink = minimumBy (\l1 l2 -> compare (distance l1) (distance l2)) validLinks
+    -- Lista de links válidos (aqueles que não estão no conjunto 'chosen')
+    validLinks = [Link curr p (euclideanDistance curr p) | p <- points, fst p `notElem` map fst chosen]
+    -- O próximo ponto a ser escolhido
+    nextPoint = secondPoint minLink
+
+
+-- Função que corta os links e retorna os K maiores
+cutLinks :: [Link] -> Int -> [Link]
+cutLinks links k = take k (sortBy (flip (comparing distance)) links)
+
+buildGroups :: [Link] -> [Point] -> [[Int]]
+buildGroups links points = 
+    map sort $ foldr groupByRoot [] points
+  where
+    -- Inicializa a Union-Find com os IDs dos pontos e faz as uniões
+    uf = foldl (\acc link -> union acc (fst (a link)) (fst (secondPoint link))) 
+                (initUF [1..length points]) 
+                links
+    
+    -- Função auxiliar para agrupar pontos pelo root
+    groupByRoot :: Point -> [[Int]] -> [[Int]]
+    groupByRoot (id, _) groups = 
+        case lookupGroup root groups of
+            Just group -> (id : group) : filter (\g -> g /= group) groups
+            Nothing -> [id] : groups
+      where root = find uf id
+
+    -- Função para buscar um grupo pelo root
+    lookupGroup :: Int -> [[Int]] -> Maybe [Int]
+    lookupGroup _ [] = Nothing
+    lookupGroup root (g:gs)
+      | root == find uf (head g) = Just g
+      | otherwise = lookupGroup root gs
+
+-- Imprime os agrupamentos de IDs de pontos
+printGroups :: [[Int]] -> IO ()
+printGroups groups =
+    putStrLn "Agrupamentos:" >>
+    mapM_ (putStrLn . joinWithComma . map show) groups
+  where
+    joinWithComma [] = ""
+    joinWithComma [x] = x
+    joinWithComma (x:xs) = x ++ ", " ++ joinWithComma xs
