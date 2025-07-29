@@ -1,6 +1,6 @@
 module Utils (readCSV, checkK, buildLinks, cutLinks, buildGroups, printGroups, saveGroups) where
 
-import System.IO (writeFile, appendFile)
+import System.IO (writeFile, appendFile, hFlush, stdout)
 import System.Exit (exitFailure)
 import Data.List (minimumBy, sortBy, sort)
 import Data.Ord (comparing)
@@ -39,10 +39,12 @@ checkK k points =
   if length points < k
       then do
         putStrLn "O numero de grupos requerido eh maior do que a quantidade de pontos existentes."
+        hFlush stdout
         exitFailure
   else if k < 0
       then do
         putStrLn "O numero de grupos deve ser positivo."
+        hFlush stdout
         exitFailure
   else return()
 
