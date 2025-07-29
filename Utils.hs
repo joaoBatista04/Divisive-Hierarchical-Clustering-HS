@@ -1,6 +1,6 @@
-module Utils (readCSV, checkK, buildLinks, cutLinks, buildGroups, printGroups) where
+module Utils (readCSV, checkK, buildLinks, cutLinks, buildGroups, printGroups, saveGroups) where
 
-import System.IO
+import System.IO (writeFile, appendFile)
 import System.Exit (exitFailure)
 import Data.List (minimumBy, sortBy, sort)
 import Data.Ord (comparing)
@@ -29,7 +29,7 @@ readCSV fp = do
     -- Função para processar uma linha e convertê-la em um ponto
     parseLine :: Int -> String -> Point
     parseLine idx line =
-      let coords = map read (splitComma line) :: [Float]
+      let coords = map read (splitComma line) :: [Double]
       in (idx, coords)
 
 -- Function to check if the user has not placed an invalid value to K parameter
@@ -67,38 +67,88 @@ buildLinksAux points curr chosen
 
 -- Função que corta os links e retorna os K maiores
 cutLinks :: [Link] -> Int -> [Link]
-cutLinks links k = take k (sortBy (flip (comparing distance)) links)
+cutLinks links k = take (k-1) (sortBy (flip (comparing distance)) links)
 
-buildGroups :: [Link] -> [Point] -> [[Int]]
-buildGroups links points = 
-    map sort $ foldr groupByRoot [] points
-  where
-    -- Inicializa a Union-Find com os IDs dos pontos e faz as uniões
-    uf = foldl (\acc link -> union acc (fst (a link)) (fst (secondPoint link))) 
-                (initUF [1..length points]) 
-                links
-    
-    -- Função auxiliar para agrupar pontos pelo root
-    groupByRoot :: Point -> [[Int]] -> [[Int]]
-    groupByRoot (id, _) groups = 
-        case lookupGroup root groups of
-            Just group -> (id : group) : filter (\g -> g /= group) groups
-            Nothing -> [id] : groups
-      where root = find uf id
+-- Agrupa os pontos que permanecem conectados após cortar os links
+buildGroups :: [Point] -> [Link] -> [Link] -> [[Point]]
+buildGroups points allLinks cutLinks =
+    groupByRoot (tagWithRoot (applyUnions (initUF (collectIDs points)) (filterKeptLinks allLinks cutLinks)) points)
 
-    -- Função para buscar um grupo pelo root
-    lookupGroup :: Int -> [[Int]] -> Maybe [Int]
-    lookupGroup _ [] = Nothing
-    lookupGroup root (g:gs)
-      | root == find uf (head g) = Just g
-      | otherwise = lookupGroup root gs
+-- Coleta os IDs dos pontos
+collectIDs :: [Point] -> [Int]
+collectIDs [] = []
+collectIDs ((pid, _) : ps) = pid : collectIDs ps
 
--- Imprime os agrupamentos de IDs de pontos
-printGroups :: [[Int]] -> IO ()
-printGroups groups =
-    putStrLn "Agrupamentos:" >>
-    mapM_ (putStrLn . joinWithComma . map show) groups
-  where
-    joinWithComma [] = ""
-    joinWithComma [x] = x
-    joinWithComma (x:xs) = x ++ ", " ++ joinWithComma xs
+-- Aplica todas as uniões nos links mantidos
+applyUnions :: UnionFind -> [Link] -> UnionFind
+applyUnions uf [] = uf
+applyUnions uf (Link p1 p2 _ : ls) = applyUnions (union uf (fst p1) (fst p2)) ls
+
+-- Filtra os links que foram mantidos
+filterKeptLinks :: [Link] -> [Link] -> [Link]
+filterKeptLinks [] _ = []
+filterKeptLinks (l:ls) cut =
+    if isInList l cut
+        then filterKeptLinks ls cut
+        else l : filterKeptLinks ls cut
+
+-- Verifica se um link está em uma lista
+isInList :: Link -> [Link] -> Bool
+isInList _ [] = False
+isInList l (x:xs) = if l == x then True else isInList l xs
+
+-- Associa cada ponto ao seu root
+tagWithRoot :: UnionFind -> [Point] -> [(Int, Point)]
+tagWithRoot _ [] = []
+tagWithRoot uf (p:ps) = (find uf (fst p), p) : tagWithRoot uf ps
+
+-- Agrupa os pontos por root
+groupByRoot :: [(Int, Point)] -> [[Point]]
+groupByRoot [] = []
+groupByRoot ((r, p):xs) = (p : collectSameRoot r xs) : groupByRoot (removeSameRoot r xs)
+
+-- Coleta os pontos com o mesmo root
+collectSameRoot :: Int -> [(Int, Point)] -> [Point]
+collectSameRoot _ [] = []
+collectSameRoot r ((r', p):xs) =
+    if r == r' then p : collectSameRoot r xs
+               else collectSameRoot r xs
+
+-- Remove os pontos com o mesmo root
+removeSameRoot :: Int -> [(Int, Point)] -> [(Int, Point)]
+removeSameRoot _ [] = []
+removeSameRoot r ((r', p):xs) =
+    if r == r' then removeSameRoot r xs
+               else (r', p) : removeSameRoot r xs
+
+-- Imprime os grupos: cada linha é um grupo com os IDs separados por vírgula e espaço
+printGroups :: [[Point]] -> Int -> IO ()
+printGroups [] _ = return ()
+printGroups (g:gs) n = do
+    printGroupIDs g
+    printGroups gs (n + 1)
+
+-- Imprime apenas os IDs dos pontos de um grupo, separados por ", "
+printGroupIDs :: [Point] -> IO ()
+printGroupIDs [] = putStrLn ""
+printGroupIDs [p] = putStrLn (show (fst p))  -- Último ponto, sem vírgula
+printGroupIDs (p:ps) = do
+    putStr (show (fst p) ++ ", ")
+    printGroupIDs ps
+
+-- Salva os grupos num arquivo com formato idêntico ao printGroups
+saveGroups :: FilePath -> [[Point]] -> IO ()
+saveGroups filename groups = do
+    saveGroupsAux filename groups
+
+saveGroupsAux :: FilePath -> [[Point]] -> IO ()
+saveGroupsAux _ [] = return ()
+saveGroupsAux filename (g:gs) = do
+    appendFile filename (groupIDsLine g ++ "\n")
+    saveGroupsAux filename gs
+
+-- Gera a linha de IDs de um grupo separados por ", "
+groupIDsLine :: [Point] -> String
+groupIDsLine [] = ""
+groupIDsLine [p] = show (fst p)
+groupIDsLine (p:ps) = show (fst p) ++ ", " ++ groupIDsLine ps

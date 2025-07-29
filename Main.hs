@@ -1,4 +1,4 @@
-import Utils (readCSV, checkK, buildLinks, cutLinks, buildGroups, printGroups)
+import Utils (readCSV, checkK, buildLinks, cutLinks, buildGroups, printGroups, saveGroups)
 import Point (Point)
 
 main :: IO ()
@@ -20,4 +20,16 @@ main = do
 
     checkK k points
     
-    printGroups (buildGroups (cutLinks (buildLinks points) k) points)
+    putStrLn "Agrupamentos:"
+
+    printGroups
+        (buildGroups points
+            (buildLinks points)
+            (cutLinks (buildLinks points) k)
+        )
+        1
+
+    saveGroups fpOutput (buildGroups points
+            (buildLinks points)
+            (cutLinks (buildLinks points) k)
+        )
