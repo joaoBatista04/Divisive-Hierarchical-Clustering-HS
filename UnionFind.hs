@@ -1,19 +1,20 @@
 module UnionFind (UnionFind, initUF, find, union) where
 
--- Definição da estrutura Union-Find
-data UnionFind = UnionFind { parent :: [Int] }  -- Armazena os pais de cada ponto
+--The structure stores the parents of each point
+--Obs.: This version of Union-Find isn't the most optimized, because further optimizations would need assessments in variables (which would make the code very complex and difficult to read and would violate the principle of the functional paradigm)
+data UnionFind = UnionFind { parent :: [Int] }
 
--- Função para criar a estrutura UnionFind inicial
+--Function to create the initial UnionFind structure
 initUF :: [Int] -> UnionFind
 initUF ids = UnionFind { parent = ids }
 
--- Função para encontrar o representante (root) de um ponto
+--Function to find the representative (root) of a point
 find :: UnionFind -> Int -> Int
 find uf x = if parent uf !! (x - 1) == x 
             then x 
             else find uf (parent uf !! (x - 1))
 
--- Função para unir dois conjuntos (pontos) de forma recursiva sem usar let
+--Function to join two sets (points) recursively
 union :: UnionFind -> Int -> Int -> UnionFind
 union uf x y = 
     if rootX == rootY then uf
@@ -22,9 +23,11 @@ union uf x y =
     rootX = find uf x
     rootY = find uf y
 
--- Função auxiliar recursiva para atualizar o pai
+--Recursive helper function to update parent point
 unionAux :: [Int] -> Int -> Int -> [Int]
-unionAux [] _ _ = []  -- Caso base: lista vazia
+unionAux [] _ _ = []
 unionAux (p:ps) idx newRoot
-    | idx == 1    = newRoot : ps   -- Substitui o primeiro índice pelo novo root
-    | otherwise   = p : unionAux ps (idx - 1) newRoot  -- Continua na lista
+    --Replaces the first index with the new root
+    | idx == 1    = newRoot : ps
+    --Continues on the list
+    | otherwise   = p : unionAux ps (idx - 1) newRoot
