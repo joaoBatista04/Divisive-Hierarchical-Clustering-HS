@@ -29,9 +29,12 @@ main = do
     putStrLn "Agrupamentos:"
     hFlush stdout
 
-    --Builds and cuts links from points and defines groups from the information obtained, preparing the results for printing on stdout (the number 1 passed as a parameter identifies that the groups must be numbered starting from 1)
-    printGroups (buildGroups points (buildLinks points) (cutLinks (buildLinks points) k)) 1
+    --Builds and cuts links from points and defines groups from the information obtained (let is used to avoid double execution of code later) 
+    let links = buildLinks points
+    let groups = buildGroups points links (cutLinks links k)
 
-    --Builds and cuts links from points and defines groups from the information obtained, preparing the results for saving in the file
-    --The whole process needs to be redone to avoid the accumulation of information in let variables (which would break the functional paradigm and make the code look like the procedural paradigm)
-    saveGroups fpOutput (buildGroups points (buildLinks points) (cutLinks (buildLinks points) k))
+    --Preparing the results for printing on stdout (the number 1 passed as a parameter identifies that the groups must be numbered starting from 1)
+    printGroups groups 1
+
+    --Preparing the results for saving in the file
+    saveGroups fpOutput groups
